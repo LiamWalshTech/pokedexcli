@@ -2,14 +2,17 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 )
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
-
+	
 	for {
 		fmt.Print("Pokedex > ")
 		scanner.Scan()
@@ -17,9 +20,14 @@ func main() {
 		usersInputClean := strings.ToLower(usersInput)
 		usersInputCleanWords := strings.Fields(usersInputClean)
 		command, exists := getCommands()[usersInputCleanWords[0]]
+		cfg := &config{}
 
 		if exists {
-			command.callback()
+			err := command.callback(cfg)
+
+			if err != nil {
+				fmt.Println(err)
+			}
 		} else {
 			fmt.Println("Unknown command")
 		}
@@ -31,13 +39,13 @@ func main() {
 	}
 }
 
-func commandExit() error {
+func commandExit(cfg *config) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp() error {
+func commandHelp(cfg *config) error {
 	fmt.Println()
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
@@ -49,10 +57,39 @@ func commandHelp() error {
 	return nil
 }
 
+func commandMap(cfg *config) error {
+	res, err := http.Get("https://pokeapi.co/api/v2/location-area/")
+
+	if err != nil {
+		return err
+	}
+
+	body, err := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode > 299 {
+		return err
+	}
+
+	if err != nil {
+		return err
+	}
+
+	data, err := json.Unmarshal(body)
+
+	fmt.Printf("%s", data)
+
+	return nil
+}
+
+type config struct {
+    nextURL     *string
+    previousURL *string
+}
+
 type cliCommand struct {
 	name        string
 	description string
-	callback    func() error
+	callback    func(*config) error
 }
 
 func getCommands() map[string]cliCommand {
@@ -66,6 +103,11 @@ func getCommands() map[string]cliCommand {
 			name:        "exit",
 			description: "Exit the Pokedex",
 			callback:    commandExit,
+		},
+		"map": {
+			name:        "map",
+			description: "It displays the names of 20 location areas in the Pokemon world.",
+			callback:    commandMap,
 		},
 	}
 }
