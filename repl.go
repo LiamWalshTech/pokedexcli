@@ -78,4 +78,3 @@ func getCommands() map[string]cliCommand {
 		},
 	}
 }
-
